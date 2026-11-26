@@ -46,3 +46,17 @@ def test_private_project_and_csrf(tmp_path):
     register(client, csrf, 'Grace', 'grace@example.com')
     assert client.get('/projects/1').status_code == 404
     assert client.post('/projects', data={'name': 'No token'}).status_code == 400
+
+
+def test_edit_and_delete_task(tmp_path):
+    app, client, csrf = setup(tmp_path)
+    register(client, csrf, 'Ada', 'ada@example.com')
+    with client.session_transaction() as session:
+        csrf = session['csrf']
+    client.post('/projects', data={'csrf': csrf, 'name': 'Launch'})
+    client.post('/projects/1/tasks', data={'csrf': csrf, 'title': 'Draft', 'priority': 'low'})
+    response = client.post('/tasks/1/edit', data={'csrf': csrf, 'title': 'Final draft', 'description': 'Review copy', 'priority': 'high', 'due_date': '2026-12-01'})
+    assert response.status_code == 302
+    assert b'Final draft' in client.get('/tasks/1').data
+    assert client.post('/tasks/1/delete', data={'csrf': csrf}).status_code == 302
+    assert client.get('/tasks/1').status_code == 404

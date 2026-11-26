@@ -150,6 +150,11 @@ def create_app(config=None):
         if not title or priority not in ('low', 'medium', 'high'):
             abort(400)
         due = request.form.get('due_date') or None
+        try:
+            if due:
+                datetime.strptime(due, '%Y-%m-%d')
+        except ValueError:
+            abort(400)
         with db():
             db().execute('INSERT INTO tasks(project_id,title,description,priority,due_date,created_at) VALUES(?,?,?,?,?,?)',
                          (project_id, title, request.form.get('description', '').strip(), priority, due, datetime.now(timezone.utc).isoformat()))
@@ -178,9 +183,44 @@ def create_app(config=None):
         task = db().execute('SELECT * FROM tasks WHERE id=?', (task_id,)).fetchone()
         if not task:
             abort(404)
-        project_for_user(task['project_id'])
+        project = project_for_user(task['project_id'])
         comments = db().execute('SELECT c.*,u.name FROM comments c JOIN users u ON u.id=c.user_id WHERE task_id=? ORDER BY c.id', (task_id,)).fetchall()
-        return render_template('task.html', task=task, comments=comments)
+        return render_template('task.html', task=task, comments=comments, project=project)
+
+    @app.post('/tasks/<int:task_id>/edit')
+    @login_required
+    def edit_task(task_id):
+        task = db().execute('SELECT * FROM tasks WHERE id=?', (task_id,)).fetchone()
+        if not task:
+            abort(404)
+        project_for_user(task['project_id'])
+        title = request.form.get('title', '').strip()
+        priority = request.form.get('priority')
+        due_date = request.form.get('due_date') or None
+        if not title or priority not in ('low', 'medium', 'high'):
+            abort(400)
+        try:
+            if due_date:
+                datetime.strptime(due_date, '%Y-%m-%d')
+        except ValueError:
+            abort(400)
+        with db():
+            db().execute('UPDATE tasks SET title=?,description=?,priority=?,due_date=? WHERE id=?',
+                         (title, request.form.get('description', '').strip(), priority, due_date, task_id))
+        return redirect(url_for('task_detail', task_id=task_id))
+
+    @app.post('/tasks/<int:task_id>/delete')
+    @login_required
+    def delete_task(task_id):
+        task = db().execute('SELECT * FROM tasks WHERE id=?', (task_id,)).fetchone()
+        if not task:
+            abort(404)
+        project = project_for_user(task['project_id'])
+        if project['owner_id'] != g.user['id']:
+            abort(403)
+        with db():
+            db().execute('DELETE FROM tasks WHERE id=?', (task_id,))
+        return redirect(url_for('project', project_id=project['id']))
 
     @app.post('/tasks/<int:task_id>/comments')
     @login_required

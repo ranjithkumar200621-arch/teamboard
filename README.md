@@ -1,6 +1,6 @@
 # Teamboard
 
-A working project and task management web app. Users can register, create private projects, add registered teammates, assign tasks, move tasks across three stages, set priorities and due dates, and discuss work in comments.
+A working project and task management web app. Users can register, create private projects, add registered teammates, assign tasks, move tasks across three stages, edit task details, set priorities and due dates, discuss work in comments, and let project owners remove tasks.
 
 ## Run locally
 
